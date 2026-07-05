@@ -1,6 +1,6 @@
 #
 
-# AV3A 版 CMake：ARM 链接共享 FFmpeg + AVS3 伴生库；x86 保持上游静态链接。
+# AV3A 版 CMake：arm64-v8a 链接共享 FFmpeg + AVS3 伴生库；armeabi-v7a / x86 保持上游静态链接。
 
 #
 
@@ -26,7 +26,8 @@ find_library(android_log_lib log)
 
 
 
-if(ANDROID_ABI MATCHES "^(armeabi-v7a|arm64-v8a)$")
+# 仅 arm64-v8a 链接 AV3A 共享库；armeabi-v7a 走下方静态 FFmpeg 分支（无菁彩声原生解码）。
+if(ANDROID_ABI STREQUAL "arm64-v8a")
 
   foreach(ffmpeg_lib avutil swresample avcodec swscale av3a_binaural_render AVS3AudioDec c++_shared)
 
