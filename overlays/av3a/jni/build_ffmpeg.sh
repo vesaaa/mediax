@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# AV3A 构建：ARM 使用共享库 + libarcdav3a；x86 回退为上游静态构建（无 AV3A 预编译库）。
+# AV3A 构建：arm64-v8a 使用共享库 + libarcdav3a；armeabi-v7a / x86 为静态 FFmpeg（无 AV3A 预编译库）。
 #
 set -eu
 
@@ -101,8 +101,9 @@ X86_STATIC_OPTIONS="
  --disable-decoder=av1,vp9
  "
 
-# x86 无 AV3A；补丁 FFmpeg 6.1 在 --disable-asm 下编 av1 会缺 libavutil 符号（ff_av1_framerate）
+# x86 / armeabi-v7a 无 AV3A 软解；补丁 FFmpeg 6.1 在 --disable-asm 下编 av1 会缺 libavutil 符号（ff_av1_framerate）
 X86_SKIP_DECODERS=(libarcdav3a av1 vp9)
+ARMV7_SKIP_DECODERS=(libarcdav3a av1)
 
 TOOLCHAIN_PREFIX="${NDK_PATH}/toolchains/llvm/prebuilt/${HOST_PLATFORM}/bin"
 if [[ ! -d "${TOOLCHAIN_PREFIX}" ]]; then
@@ -159,7 +160,27 @@ build_x86_static() {
   make clean
 }
 
-build_arm_av3a armeabi-v7a armv7-a \
+# armeabi-v7a：第三方预编译 AVS3 库与 Android 32 位 linker 不兼容（DT_RELASZ / 缺 GNU_HASH），
+# 故 32 位 ARM 走静态 FFmpeg（无 libarcdav3a），菁彩声仅 arm64-v8a 专包路径提供。
+build_armv7_static() {
+  local -a extra_configure=("$@")
+  local options="${X86_STATIC_OPTIONS}"
+  for decoder in "${ENABLED_DECODERS[@]}"; do
+    local skip=0
+    for x in "${ARMV7_SKIP_DECODERS[@]}"; do
+      [[ "${decoder}" == "${x}" ]] && skip=1 && break
+    done
+    [[ "${skip}" -eq 1 ]] && continue
+    options="${options} --enable-decoder=${decoder}"
+  done
+  cd "${FFMPEG_SRC}"
+  bash ./configure "${extra_configure[@]}" ${options}
+  make -j"$JOBS"
+  make install-libs
+  make clean
+}
+
+build_armv7_static \
   --libdir=android-libs/armeabi-v7a \
   --arch=arm \
   --cpu=armv7-a \

@@ -113,6 +113,17 @@ jobs:
             bash ./gradlew :media3-ffmpeg-decoder:publishToMavenLocal :media3-extractor-vstv:publishToMavenLocal
           fi
 
+      - name: Validate armeabi-v7a AV3A companion ELF (av3a tags)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && contains(github.ref, 'av3a')
+        run: |
+          chmod +x scripts/validate-av3a-arm32-elf.sh
+          mapfile -t AARS < <(find ~/.m2/repository/org/jellyfin/media3/media3-ffmpeg-decoder -name '*.aar' 2>/dev/null)
+          if [[ "${#AARS[@]}" -eq 0 ]]; then
+            echo "::error::未找到 media3-ffmpeg-decoder AAR"
+            exit 1
+          fi
+          bash scripts/validate-av3a-arm32-elf.sh "${AARS[@]}"
+
       - name: Publish to GitHub Packages (semver tag only)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         env:
